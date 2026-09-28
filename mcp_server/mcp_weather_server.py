@@ -77,10 +77,8 @@ def create_weather_mcp_server():
     except Exception as error:
         print(f"Server failed to start: {error}")
 
-if __name__ == '__main__':
-    create_weather_mcp_server()
 
-# if __name__ == "__main__":
-#     service = WeatherService()
-#     sql = "SELECT * FROM weather_data WHERE city='Sydney' LIMIT 2"
-#     print(service.execute_query(sql))
+if __name__ == "__main__":
+    service = WeatherService()
+    sql = "SELECT * FROM weather_data WHERE city='Sydney' LIMIT 2"
+    print(service.execute_query(sql))
