@@ -443,12 +443,16 @@ def setup_scheduler():
     last_run_date = None
     while True:
         now = datetime.now(SYDNEY_TIMEZONE)
-        if now.hour == 1 and now.minute < 2 and last_run_date != now.date():
+        if now.hour == 1 and last_run_date != now.date():
             update_weather()
             last_run_date = now.date()
-        time.sleep(60)
+        time.sleep(30)
 
 
 if __name__ == "__main__":
-    update_weather()
-    setup_scheduler()
+    if "--schedule" in sys.argv:
+        update_weather()
+        setup_scheduler()
+    else:
+        update_weather(force_update=True)
+        logger.info("Weather update finished.")
