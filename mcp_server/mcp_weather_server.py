@@ -12,11 +12,12 @@ project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_directory not in sys.path:
     sys.path.insert(0, project_directory)
 
-from config import Config
+from config import Config, listen_address
 from create_logger import logger
 from utils.format import DateEncoder, default_encoder
 
 conf = Config()
+WEATHER_MCP_HOST, WEATHER_MCP_PORT = listen_address(conf.weather_mcp_url, "WEATHER_MCP_URL")
 
 
 class WeatherService:
@@ -72,8 +73,7 @@ def create_weather_mcp_server():
         return service.execute_query(sql)
 
     try:
-        # python_a2a FastMCP serves tools over HTTP with the fastapi transport.
-        weather_mcp.run(transport="fastapi", host="127.0.0.1", port=8002)
+        weather_mcp.run(transport="fastapi", host=WEATHER_MCP_HOST, port=WEATHER_MCP_PORT)
     except Exception as error:
         print(f"Server failed to start: {error}")
 

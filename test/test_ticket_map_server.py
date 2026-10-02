@@ -28,7 +28,6 @@ def test_ticket_mcp():
         tools.raise_for_status()
         print(f"tools-->{tools.json()}")
 
-        # Test 1: query a flight.
         sql_flights = (
             "SELECT * FROM flight_tickets WHERE departure_city = 'Sydney' "
             "AND arrival_city = 'Melbourne' AND DATE(departure_time) = '2026-10-02' "
@@ -39,7 +38,6 @@ def test_ticket_mcp():
         if result_flights.get("status") != "success" or not result_flights.get("data"):
             raise RuntimeError(f"Expected a Sydney to Melbourne economy flight, got: {result_flights}")
 
-        # Test 2: query a train.
         sql_trains = (
             "SELECT * FROM train_tickets WHERE departure_city = 'Sydney' "
             "AND arrival_city = 'Melbourne' AND DATE(departure_time) = '2026-10-03' "
@@ -50,7 +48,6 @@ def test_ticket_mcp():
         if result_trains.get("status") != "success" or not result_trains.get("data"):
             raise RuntimeError(f"Expected a Sydney to Melbourne economy train, got: {result_trains}")
 
-        # Test 3: query a concert.
         sql_concerts = (
             "SELECT * FROM concert_tickets WHERE city = 'Sydney' "
             "AND artist = 'Tame Impala' AND DATE(start_time) = '2026-10-16' "

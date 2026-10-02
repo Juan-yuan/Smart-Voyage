@@ -7,7 +7,11 @@ project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_directory not in sys.path:
     sys.path.insert(0, project_directory)
 
+from config import Config, listen_address
 from create_logger import logger
+
+conf = Config()
+ORDER_MCP_HOST, ORDER_MCP_PORT = listen_address(conf.order_mcp_url, "ORDER_MCP_URL")
 
 
 def create_order_mcp_server():
@@ -65,8 +69,7 @@ def create_order_mcp_server():
 
 
     try:
-        print("Server started. Visit http://127.0.0.1:8001")
-        order_mcp.run(transport="fastapi", host="127.0.0.1", port=8001)
+        order_mcp.run(transport="fastapi", host=ORDER_MCP_HOST, port=ORDER_MCP_PORT)
     except Exception as error:
         print(f"Server failed to start: {error}")
 

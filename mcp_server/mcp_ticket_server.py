@@ -12,11 +12,12 @@ project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_directory not in sys.path:
     sys.path.insert(0, project_directory)
 
-from config import Config
+from config import Config, listen_address
 from create_logger import logger
 from utils.format import DateEncoder, default_encoder
 
 conf = Config()
+TICKET_MCP_HOST, TICKET_MCP_PORT = listen_address(conf.ticket_mcp_url, "TICKET_MCP_URL")
 
 
 class TicketService:
@@ -72,8 +73,7 @@ def create_ticket_mcp_server():
         return service.execute_query(sql)
 
     try:
-        # python_a2a FastMCP serves tools over HTTP with the fastapi transport.
-        ticket_mcp.run(transport="fastapi", host="127.0.0.1", port=8003)
+        ticket_mcp.run(transport="fastapi", host=TICKET_MCP_HOST, port=TICKET_MCP_PORT)
     except Exception as error:
         print(f"Server failed to start: {error}")
 

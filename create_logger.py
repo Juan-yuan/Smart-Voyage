@@ -33,7 +33,6 @@ def setup_logger(name, log_file='logs/app.log'):
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    # Each handler can set its own level, but that level must be greater than or equal to the logger level.
     console_handler.setLevel(logging.INFO)
 
     file_handler = logging.FileHandler(filename=log_file, encoding='utf-8', mode='a')
@@ -51,7 +50,5 @@ log_file = _resolve_log_file(Config().log_file)
 logger = setup_logger('SmartVoyage', log_file)
 
 if __name__ == '__main__':
-    logger.info('Logger initialized successfully.')
-    logger.info(f'Log file path: {log_file}')
     for handler in logger.handlers:
         handler.flush()
