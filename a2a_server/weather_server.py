@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from datetime import datetime
@@ -63,13 +64,14 @@ class WeatherQueryServer(A2AServer):
         try:
             chain = self.sql_prompt | self.llm
             current_date = datetime.now(ZoneInfo("Australia/Sydney")).strftime("%Y-%m-%d")
-            output = chain.invoke(
+            raw_content = chain.invoke(
                 {
                     "conversation": conversation,
                     "current_date": current_date,
                     "table_schema_string": self.schema,
                 }
-            ).content.strip()
+            ).content
+            output = raw_content if isinstance(raw_content, str) else str(raw_content)
             output = common.strip_code_fence(output)
             logger.info(f"Raw LLM output: {output}")
             if output.startswith("{"):

@@ -149,6 +149,12 @@ class Config:
         self.ticket_sql_prompt = _first_env('TICKET_SQL_PROMPT')
         self.ticket_summary_prompt = _first_env('TICKET_SUMMARY_PROMPT')
         self.order_mcp_url = _first_env('ORDER_MCP_URL')
+        self.order_agent_url = _first_env('ORDER_AGENT_URL')
+        self.order_system_prompt = _first_env('ORDER_SYSTEM_PROMPT')
+        self.intent_prompt = _first_env('INTENT_PROMPT')
+        self.summarize_weather_prompt = _first_env('SUMMARIZE_WEATHER_PROMPT')
+        self.summarize_ticket_prompt = _first_env('SUMMARIZE_TICKET_PROMPT')
+        self.attraction_prompt = _first_env('ATTRACTION_PROMPT')
 
     def call_dashscope(self, prompt):
         """Call the LLM and stream the generated answer, same as Insurance-RAG-Assistant."""
