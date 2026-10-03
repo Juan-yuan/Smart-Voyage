@@ -144,6 +144,10 @@ class Config:
         self.weather_mcp_url = _first_env('WEATHER_MCP_URL')
         self.weather_agent_url = _first_env('WEATHER_AGENT_URL')
         self.ticket_mcp_url = _first_env('TICKET_MCP_URL')
+        self.ticket_query_url = _first_env('TICKET_QUERY_URL')
+        self.ticket_agent_url = _first_env('TICKET_AGENT_URL')
+        self.ticket_sql_prompt = _first_env('TICKET_SQL_PROMPT')
+        self.ticket_summary_prompt = _first_env('TICKET_SUMMARY_PROMPT')
         self.order_mcp_url = _first_env('ORDER_MCP_URL')
 
     def call_dashscope(self, prompt):
