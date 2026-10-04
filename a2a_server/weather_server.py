@@ -2,7 +2,6 @@ import json
 import os
 import sys
 from datetime import datetime
-from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -15,7 +14,7 @@ for path in (server_directory, project_directory):
         sys.path.insert(0, path)
 
 import common
-from config import Config
+from config import Config, listen_address
 from create_logger import logger
 
 conf = Config()
@@ -130,9 +129,5 @@ if __name__ == "__main__":
     weather_server = WeatherQueryServer()
     for skill in weather_server.agent_card.skills:
         print(f"- {skill.name}: {skill.description}")
-    parsed_url = urlparse(WEATHER_AGENT_URL)
-    run_server(
-        weather_server,
-        host=parsed_url.hostname or "127.0.0.1",
-        port=parsed_url.port or 5005,
-    )
+    host, port = listen_address(WEATHER_AGENT_URL, "WEATHER_AGENT_URL")
+    run_server(weather_server, host=host, port=port)

@@ -104,6 +104,22 @@ def _first_env(*names, default=''):
     return default
 
 
+def _require_env(*names):
+    value = _first_env(*names)
+    if not value or not str(value).strip():
+        raise RuntimeError(f"Missing {names[0]}. Add it to the .env file.")
+    return value
+
+
+def service_origin(url, setting_name):
+    """Return scheme://host:port for a service URL stored in .env."""
+    host, port = listen_address(url, setting_name)
+    parsed = urlparse(str(url).strip())
+    if not parsed.scheme:
+        raise RuntimeError(f"{setting_name} must include a scheme, host, and port.")
+    return f"{parsed.scheme}://{host}:{port}"
+
+
 _load_env_files()
 
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
@@ -112,13 +128,9 @@ project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 # Configuration
 class Config:
     def __init__(self):
-        self.OPENAI_API_KEY = _first_env('OPENAI_API_KEY', 'openai_api_key', 'API_KEY', 'api_key')
-        self.OPENAI_BASE_URL = _first_env(
-            'OPENAI_BASE_URL',
-            'BASE_URL',
-            default='https://api.openai.com/v1',
-        )
-        self.LLM_MODEL = _first_env('LLM_MODEL', 'MODEL_NAME', default='gpt-5-mini')
+        self.OPENAI_API_KEY = _require_env('OPENAI_API_KEY', 'openai_api_key', 'API_KEY', 'api_key')
+        self.OPENAI_BASE_URL = _require_env('OPENAI_BASE_URL', 'BASE_URL')
+        self.LLM_MODEL = _require_env('LLM_MODEL', 'MODEL_NAME')
         self.api_key = self.OPENAI_API_KEY
         self.base_url = self.OPENAI_BASE_URL
         self.model_name = self.LLM_MODEL
@@ -129,11 +141,10 @@ class Config:
             logger.error(f"Failed to initialize the OpenAI client: {e}")
             raise
 
-        # Database configuration
-        self.host = _first_env('MYSQL_HOST', default='localhost')
-        self.user = _first_env('MYSQL_USER', default='root')
-        self.password = _first_env('MYSQL_PASSWORD', default='mysql123')
-        self.database = _first_env('MYSQL_DATABASE', default='travel_rag')
+        self.host = _require_env('MYSQL_HOST')
+        self.user = _require_env('MYSQL_USER')
+        self.password = _require_env('MYSQL_PASSWORD')
+        self.database = _require_env('MYSQL_DATABASE')
 
         self.log_file = _first_env(
             'LOG_FILE',
@@ -155,6 +166,7 @@ class Config:
         self.summarize_weather_prompt = _first_env('SUMMARIZE_WEATHER_PROMPT')
         self.summarize_ticket_prompt = _first_env('SUMMARIZE_TICKET_PROMPT')
         self.attraction_prompt = _first_env('ATTRACTION_PROMPT')
+        self.weather_test_summary_prompt = _first_env('WEATHER_TEST_SUMMARY_PROMPT')
 
     def call_dashscope(self, prompt):
         """Call the LLM and stream the generated answer, same as Insurance-RAG-Assistant."""
@@ -179,6 +191,4 @@ config = Config()
 
 
 if __name__ == '__main__':
-    print(config.OPENAI_BASE_URL)
-    print(config.LLM_MODEL)
-    print(config.log_file)
+    print('Configuration loaded.')

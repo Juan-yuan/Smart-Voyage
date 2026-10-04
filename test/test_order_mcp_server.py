@@ -1,8 +1,15 @@
+import os
 import sys
 
 import requests
 
-server_url = "http://127.0.0.1:8001"
+project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_directory not in sys.path:
+    sys.path.insert(0, project_directory)
+
+from config import Config, service_origin
+
+server_url = service_origin(Config().order_mcp_url, "ORDER_MCP_URL")
 
 
 def call_order_tool(name, payload):
@@ -69,7 +76,7 @@ def test_order_mcp():
         if concert_result != "Concert ticket booked successfully.":
             raise RuntimeError(f"Expected a successful concert booking, got: {concert_result}")
     except requests.RequestException as error:
-        print("Start the server script first. It should be listening on http://127.0.0.1:8001")
+        print("Start the order MCP server from ORDER_MCP_URL first.")
         print(f"Order MCP test failed: {error}")
         return False
     except Exception as error:

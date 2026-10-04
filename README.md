@@ -86,7 +86,7 @@ Each A2A server publishes an agent card: name, description, version, endpoint, a
 
 ### WeatherQueryAssistant
 
-Listens on the host and port in `WEATHER_AGENT_URL`. The tests and the card screenshot use `http://127.0.0.1:5005`.
+Listens on the host and port in `WEATHER_AGENT_URL`. There is no default address.
 
 ![Weather agent card](images/forecasts_agent_card.png)
 
@@ -94,7 +94,7 @@ Skill: **City forecast**. Examples include a dated Sydney forecast, a five-day M
 
 ### TicketQueryAssistant
 
-Listens on `TICKET_AGENT_URL`. The tests and the card screenshot use `http://127.0.0.1:5006`.
+Listens on `TICKET_AGENT_URL`. There is no default address.
 
 ![Ticket agent card](images/ticket_agent_card.png)
 
@@ -102,7 +102,7 @@ Skill: **Ticket search** for trains, flights, and concert seats.
 
 ### TicketOrderAssistant
 
-Listens on `ORDER_AGENT_URL`. The tests and the card screenshot use `http://127.0.0.1:5007`.
+Listens on `ORDER_AGENT_URL`. There is no default address.
 
 ![Order agent card](images/order_agent_card.png)
 
@@ -117,9 +117,9 @@ Skill: **Ticket booking**. The agent confirms availability with the ticket assis
 | python-a2a | Agent-to-agent tasks and tool servers | `A2AServer`, `AgentCard`, `AgentSkill`, `A2AClient`, `AgentNetwork`, and `FastMCP` |
 | A2A task protocol | A specialist can finish, ask for more input, or fail without the router knowing its SQL | Clients send a `Task` whose message is `TextContent`. Results are read from `artifacts` or `status.message` |
 | LangChain | Prompt chains and tool calling | `ChatPromptTemplate`, `ChatOpenAI`, and `bind_tools` on the order agent |
-| OpenAI-compatible chat API | The same client can target OpenAI or another endpoint | `LLM_MODEL`, `OPENAI_API_KEY`, and `OPENAI_BASE_URL`. Code default model is `gpt-5-mini` and the default base URL is `https://api.openai.com/v1` |
+| OpenAI-compatible chat API | The same client can target OpenAI or another endpoint | `LLM_MODEL`, `OPENAI_API_KEY`, and `OPENAI_BASE_URL`. All three are required and have no default |
 | FastAPI transport | HTTP tools with a small, explicit API | `FastMCP.run(transport="fastapi")`. Tests call `GET /health`, `GET /tools`, and `POST /tools/{name}` |
-| MySQL | Relational forecasts and inventory, queried with generated SQL | `pymysql` against the database named by `MYSQL_DATABASE` (default `travel_rag`) |
+| MySQL | Relational forecasts and inventory, queried with generated SQL | `pymysql` against the host, user, password, and database named in `.env` |
 | Open-Meteo | Source of city forecasts | `utils/spider_weather.py` requests `https://api.open-meteo.com/v1/forecast` and writes `weather_data` |
 | zoneinfo | Travel dates must follow the destination, not the server locale | Intent routing and SQL prompts use `Australia/Sydney`. The weather loader uses the same zone, with UTC+10 if timezone data is missing |
 
@@ -155,7 +155,7 @@ Dates, datetimes, timedeltas, and decimals are converted with `utils/format.py` 
 
 The weather and ticket tool processes do not open an HTTP port from their `__main__` blocks. Those blocks only run a sample `SELECT`. HTTP starts from `create_weather_mcp_server()` and `create_ticket_mcp_server()`. The order process does start HTTP from `__main__`.
 
-The tests expect the tools on `http://127.0.0.1:8002` (weather), `http://127.0.0.1:8003` (tickets), and `http://127.0.0.1:8001` (orders). The running host and port always come from the URL in `.env`.
+Tests read the tool and agent addresses from `.env`. A missing URL raises before the test sends a request.
 
 ### Booking
 
@@ -249,35 +249,24 @@ Create a gitignored `.env` in the project root. Names below are the ones the cod
 
 | Variable | Used for |
 | --- | --- |
-| `OPENAI_API_KEY` or `API_KEY` | LLM client |
-| `OPENAI_BASE_URL` or `BASE_URL` | Chat API base URL |
-| `LLM_MODEL` or `MODEL_NAME` | Chat model |
-| `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` | Forecast and ticket database |
-| `LOG_FILE` | Log path; default is `logs/app.log` inside this project |
+| `OPENAI_API_KEY` or `API_KEY` | LLM client. Required |
+| `OPENAI_BASE_URL` or `BASE_URL` | Chat API base URL. Required |
+| `LLM_MODEL` or `MODEL_NAME` | Chat model. Required |
+| `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` | Forecast and ticket database. Required |
+| `LOG_FILE` | Optional log path |
 | `WEATHER_MCP_URL` | Full URL of `POST /tools/query_weather` |
-| `WEATHER_AGENT_URL` | Weather A2A server |
+| `WEATHER_AGENT_URL` | Weather A2A server, including host and port |
 | `TICKET_MCP_URL` | Ticket MCP listen address |
 | `TICKET_QUERY_URL` | Full URL of `POST /tools/query_ticket` |
-| `TICKET_AGENT_URL` | Ticket A2A server |
+| `TICKET_AGENT_URL` | Ticket A2A server, including host and port |
 | `ORDER_MCP_URL` | Order MCP listen address |
-| `ORDER_AGENT_URL` | Order A2A server |
+| `ORDER_AGENT_URL` | Order A2A server, including host and port |
 | `WEATHER_SQL_PROMPT`, `TICKET_SQL_PROMPT`, `ORDER_SYSTEM_PROMPT` | Specialist prompts |
 | `INTENT_PROMPT`, `SUMMARIZE_WEATHER_PROMPT`, `SUMMARIZE_TICKET_PROMPT`, `ATTRACTION_PROMPT` | Router and UI prompts |
 | `TICKET_SUMMARY_PROMPT` | Summary prompt used by `test/test_ticket_agent_server.py` |
+| `WEATHER_TEST_SUMMARY_PROMPT` | Summary prompt used by `test/test_weather_agent_server.py` |
 
-The automated tests call the local addresses below. Set the `.env` URLs to those addresses if you want the tests to reach the processes you start.
-
-```text
-WEATHER_MCP_URL=http://127.0.0.1:8002/tools/query_weather
-TICKET_MCP_URL=http://127.0.0.1:8003
-TICKET_QUERY_URL=http://127.0.0.1:8003/tools/query_ticket
-ORDER_MCP_URL=http://127.0.0.1:8001
-WEATHER_AGENT_URL=http://127.0.0.1:5005
-TICKET_AGENT_URL=http://127.0.0.1:5006
-ORDER_AGENT_URL=http://127.0.0.1:5007
-```
-
-Prompt values are not in this repository. A missing prompt or URL raises `Missing <NAME>. Add it to the .env file.`
+Prompt text, the API key, the database password, and every service URL live only in `.env`. None of those settings has a fallback in code. A missing value raises `Missing <NAME>. Add it to the .env file.` before the UI, an agent, or a test can run.
 
 ## Usage
 
@@ -312,14 +301,7 @@ python main.py "What is the weather in Sydney on 2026-09-28?"
 
 In the terminal loop, `cards` prints each agent card and `quit` exits.
 
-Check a tool server:
-
-```bash
-curl -s http://127.0.0.1:8002/health
-curl -s http://127.0.0.1:8002/tools
-```
-
-`GET /` on a FastMCP server is not the health check. The tests use `GET /health`.
+A running tool server answers `GET /health` and `GET /tools` on the host and port from its `.env` URL. `GET /` is not the health check.
 
 Agent cards are served by each A2A process. The weather, ticket, and order screenshots in this README are those card pages.
 

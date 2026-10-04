@@ -12,11 +12,11 @@ project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_directory not in sys.path:
     sys.path.insert(0, project_directory)
 
-from config import Config
+from config import Config, service_origin
 from create_logger import logger
 
 conf = Config()
-AGENT_URL = "http://127.0.0.1:5005"
+AGENT_URL = service_origin(conf.weather_agent_url, "WEATHER_AGENT_URL")
 QUERY = "Sydney weather on 2026-09-28"
 
 llm = ChatOpenAI(
@@ -26,19 +26,14 @@ llm = ChatOpenAI(
     temperature=0.1,
 )
 
+def _require_setting(name, value):
+    if not value or not str(value).strip():
+        raise RuntimeError(f"Missing {name}. Add it to the .env file.")
+    return value
+
+
 weather_prompt = ChatPromptTemplate.from_template(
-    """
-    You are a weather presenter. Turn the query result below into a short spoken summary.
-    - Mention the city, date, temperature, weather description, and humidity, plus one suitable activity.
-    - Use a presenter tone, for example "Welcome to the weather desk. Today we have...".
-    - If the result is empty, suggest trying a different city or date.
-    - Write in English and keep it between 100 and 150 words.
-
-    Query result:
-    {weather}
-
-    Summary:
-    """
+    _require_setting("WEATHER_TEST_SUMMARY_PROMPT", conf.weather_test_summary_prompt)
 )
 
 
@@ -100,7 +95,7 @@ def test_weather_agent():
         logger.info(f"**Weather presenter summary**:\n{summary}")
         print(summary)
     except requests.RequestException as error:
-        print("Start the weather agent first. It should be listening on http://127.0.0.1:5005")
+        print("Start the weather agent from WEATHER_AGENT_URL first.")
         print(f"Weather agent test failed: {error}")
         return False
     except Exception as error:

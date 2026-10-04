@@ -1,9 +1,16 @@
 import json
+import os
 import sys
 
 import requests
 
-server_url = "http://127.0.0.1:8002"
+project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_directory not in sys.path:
+    sys.path.insert(0, project_directory)
+
+from config import Config, service_origin
+
+server_url = service_origin(Config().weather_mcp_url, "WEATHER_MCP_URL")
 
 
 def call_query_weather(sql):
@@ -44,7 +51,7 @@ def test_weather_mcp():
         if result_range_data.get("status") != "success" or len(result_range_data.get("data", [])) < 3:
             raise RuntimeError(f"Expected three Sydney forecast days, got: {result_range_data}")
     except requests.RequestException as error:
-        print("Start the server script first. It should be listening on http://127.0.0.1:8002")
+        print("Start the weather MCP server from WEATHER_MCP_URL first.")
         print(f"Weather MCP test failed: {error}")
         return False
     except Exception as error:

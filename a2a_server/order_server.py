@@ -2,7 +2,6 @@ import asyncio
 import os
 import sys
 import uuid
-from urllib.parse import urlparse
 
 import requests
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -16,7 +15,7 @@ for path in (server_directory, project_directory):
         sys.path.insert(0, path)
 
 import common
-from config import Config
+from config import Config, listen_address
 from create_logger import logger
 
 conf = Config()
@@ -201,9 +200,5 @@ if __name__ == "__main__":
     order_server = TicketOrderServer()
     for skill in order_server.agent_card.skills:
         print(f"- {skill.name}: {skill.description}")
-    parsed_url = urlparse(ORDER_AGENT_URL)
-    run_server(
-        order_server,
-        host=parsed_url.hostname or "127.0.0.1",
-        port=parsed_url.port or 5007,
-    )
+    host, port = listen_address(ORDER_AGENT_URL, "ORDER_AGENT_URL")
+    run_server(order_server, host=host, port=port)

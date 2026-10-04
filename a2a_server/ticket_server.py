@@ -2,7 +2,6 @@ import json
 import os
 import sys
 from datetime import datetime
-from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -15,7 +14,7 @@ for path in (server_directory, project_directory):
         sys.path.insert(0, path)
 
 import common
-from config import Config
+from config import Config, listen_address
 from create_logger import logger
 
 conf = Config()
@@ -174,9 +173,5 @@ if __name__ == "__main__":
     print("\nSkills:")
     for skill in ticket_server.agent_card.skills:
         print(f"- {skill.name}: {skill.description}")
-    parsed_url = urlparse(TICKET_AGENT_URL)
-    run_server(
-        ticket_server,
-        host=parsed_url.hostname or "127.0.0.1",
-        port=parsed_url.port or 5006,
-    )
+    host, port = listen_address(TICKET_AGENT_URL, "TICKET_AGENT_URL")
+    run_server(ticket_server, host=host, port=port)
