@@ -49,14 +49,14 @@ def get_ticket_info(sql: str) -> str:
 
 agent_card = AgentCard(
     name="TicketQueryAssistant",
-    description="Ticket query assistant that answers natural-language questions about trains, flights, and concerts.",
+    description="Trains, flights, and concert seats.",
     url=TICKET_AGENT_URL,
     version="1.0.4",
     capabilities={"streaming": True, "memory": True},
     skills=[
         AgentSkill(
-            name="execute ticket query",
-            description="Run a ticket query and return rows from the ticket database. Accepts natural language.",
+            name="Ticket search",
+            description="Find trains, flights, or concert seats from a natural-language request.",
             examples=[
                 "Train from Sydney to Melbourne on 2026-10-03, Economy",
                 "Flight from Sydney to Melbourne on 2026-10-02, Economy",
@@ -106,13 +106,13 @@ class TicketQueryServer(A2AServer):
             logger.error(f"Unusable LLM output format: {output}")
             return {
                 "status": "input_required",
-                "message": "Please provide the ticket type and the required details, such as cities and a date.",
+                "message": "Please include the ticket type, the cities or venue, and a date.",
             }
         except Exception as error:
             logger.error(f"Failed to generate the SQL query: {error}")
             return {
                 "status": "input_required",
-                "message": "The query is invalid. Please provide the ticket type, cities, and a date.",
+                "message": "Please name a train, flight, or concert, plus the date.",
             }
 
     def handle_task(self, task):
@@ -129,7 +129,7 @@ class TicketQueryServer(A2AServer):
             query_type = generated.get("type") or _query_type_from_sql(sql_query)
             logger.info(f"Generated SQL query: {sql_query} (type: {query_type})")
             if not sql_query.upper().startswith("SELECT"):
-                return common.fail_task(task, "Only SELECT queries are allowed. Please ask a ticket question.")
+                return common.fail_task(task, "Please ask for a train, a flight, or a concert.")
 
             ticket_result = get_ticket_info(sql_query)
             response = common.parse_mcp_payload(ticket_result)
@@ -139,34 +139,31 @@ class TicketQueryServer(A2AServer):
                 for row in response.get("data", []):
                     if query_type == "train":
                         lines.append(
-                            f"{row['departure_city']} to {row['arrival_city']} {row['departure_time']}: "
-                            f"train {row['train_number']}, {row['seat_type']}, "
-                            f"price {row['price']} AUD, {row['remaining_seats']} seats left"
+                            f"{row['departure_city']} to {row['arrival_city']}, departing {row['departure_time']}. "
+                            f"Train {row['train_number']}, {row['seat_type']}, "
+                            f"{row['price']} AUD, {row['remaining_seats']} seats left."
                         )
                     elif query_type == "flight":
                         lines.append(
-                            f"{row['departure_city']} to {row['arrival_city']} {row['departure_time']}: "
-                            f"flight {row['flight_number']}, {row['cabin_type']}, "
-                            f"price {row['price']} AUD, {row['remaining_seats']} seats left"
+                            f"{row['departure_city']} to {row['arrival_city']}, departing {row['departure_time']}. "
+                            f"Flight {row['flight_number']}, {row['cabin_type']}, "
+                            f"{row['price']} AUD, {row['remaining_seats']} seats left."
                         )
                     elif query_type == "concert":
                         lines.append(
-                            f"{row['city']} {row['start_time']}: {row['artist']} at {row['venue']}, "
-                            f"{row['ticket_type']}, price {row['price']} AUD, {row['remaining_seats']} seats left"
+                            f"{row['artist']} at {row['venue']}, {row['city']}, {row['start_time']}. "
+                            f"{row['ticket_type']}, {row['price']} AUD, {row['remaining_seats']} seats left."
                         )
             return common.finish_task(
                 task,
                 response,
                 "\n".join(lines),
-                "No tickets matched. Please provide more detail.",
-                "Query failed. Please try again or provide more detail.",
+                "No tickets matched that search. Please check the cities, date, and seat type.",
+                "The ticket search could not be completed. Please try again.",
             )
         except Exception as error:
             logger.error(f"Query failed: {error}")
-            return common.fail_task(
-                task,
-                f"Query failed: {error}. Please try again or provide more detail.",
-            )
+            return common.fail_task(task, "The ticket search could not be completed. Please try again.")
 
 
 if __name__ == "__main__":

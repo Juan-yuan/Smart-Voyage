@@ -110,12 +110,13 @@ def order_tickets(query: str) -> dict:
             logger.info(f"Calling order tool {name} with {args}")
             booking_tool = ORDER_TOOL_MAP.get(name)
             if booking_tool is None:
-                return {"status": "error", "message": f"Unknown booking tool: {name}"}
+                logger.error(f"Unknown booking tool: {name}")
+                return {"status": "error", "message": "That booking could not be completed. Please try again."}
             results.append(booking_tool.invoke(args))
         return {"status": "success", "message": "\n".join(results)}
     except Exception as error:
         logger.error(f"Ticket booking failed: {error}")
-        return {"status": "error", "message": f"Ticket booking failed: {error}"}
+        return {"status": "error", "message": "The booking could not be completed. Please try again."}
 
 
 def _status_text(task) -> str:
@@ -132,14 +133,14 @@ def _state_value(state) -> str:
 
 agent_card = AgentCard(
     name="TicketOrderAssistant",
-    description="Books train, flight, and concert tickets after checking availability.",
+    description="Reserves a train, flight, or concert ticket after confirming it is available.",
     url=ORDER_AGENT_URL,
     version="1.0.4",
     capabilities={"streaming": True, "memory": True},
     skills=[
         AgentSkill(
-            name="execute ticket order",
-            description="Check ticket availability, then book the requested train, flight, or concert ticket.",
+            name="Ticket booking",
+            description="Confirm a train, flight, or concert ticket is available, then reserve it.",
             examples=[
                 "Book 1 Economy train from Sydney to Melbourne on 2026-10-03",
                 "Book 1 Economy flight from Sydney to Melbourne on 2026-10-02",
@@ -181,13 +182,19 @@ class TicketOrderServer(A2AServer):
             if order_result.get("status") == "input_required":
                 return common.ask_for_input(task, data)
             if order_result.get("status") != "success":
-                return common.fail_task(task, data or "Booking failed. Please try again.")
+                return common.fail_task(task, data or "The booking could not be completed. Please try again.")
 
-            result = f"Availability:\n{ticket_result}\nBooking result:\n{data}"
-            return common.finish_task(task, {"status": "success"}, result, "No tickets were booked.", "Booking failed.")
+            result = f"{data.strip()}\n\n{ticket_result.strip()}"
+            return common.finish_task(
+                task,
+                {"status": "success"},
+                result,
+                "No tickets were booked.",
+                "The booking could not be completed. Please try again.",
+            )
         except Exception as error:
             logger.error(f"Booking failed: {error}")
-            return common.fail_task(task, f"Booking failed: {error}. Please try again or provide more detail.")
+            return common.fail_task(task, "The booking could not be completed. Please try again.")
 
 
 if __name__ == "__main__":

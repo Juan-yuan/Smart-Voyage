@@ -38,14 +38,14 @@ def get_weather(sql: str) -> str:
 
 agent_card = AgentCard(
     name="WeatherQueryAssistant",
-    description="Weather query assistant that answers natural-language questions from the weather_data table.",
+    description="City forecasts for a date or a short date range.",
     url=WEATHER_AGENT_URL,
     version="1.0.0",
     capabilities={"streaming": True, "memory": True},
     skills=[
         AgentSkill(
-            name="execute weather query",
-            description="Run a weather query and return rows from the weather database. Accepts natural language.",
+            name="City forecast",
+            description="Answer a weather question for a city and a date.",
             examples=["Sydney weather on 2026-10-02", "Melbourne for the next 5 days", "What is the weather today"],
         )
     ],
@@ -81,7 +81,7 @@ class WeatherQueryServer(A2AServer):
             logger.error(f"Failed to generate the SQL query: {error}")
             return {
                 "status": "input_required",
-                "message": "The query is invalid. Please provide a city and a date.",
+                "message": "Please include a city and a date.",
             }
 
     def handle_task(self, task):
@@ -97,7 +97,7 @@ class WeatherQueryServer(A2AServer):
             sql_query = sql_result["sql"].strip().rstrip(";")
             logger.info(f"Generated SQL query: {sql_query}")
             if not sql_query.upper().startswith("SELECT"):
-                return common.fail_task(task, "Only SELECT queries are allowed. Please ask a weather question.")
+                return common.fail_task(task, "Please ask for the weather in a city on a date.")
 
             weather_result = get_weather(sql_query)
             response = common.parse_mcp_payload(weather_result)
@@ -118,15 +118,12 @@ class WeatherQueryServer(A2AServer):
                 task,
                 response,
                 response_text,
-                "Please enter another city and date.",
-                "Query failed. Please try again or provide more detail.",
+                "No forecast is available for that city and date.",
+                "The weather check could not be completed. Please try again.",
             )
         except Exception as error:
             logger.error(f"Query failed: {error}")
-            return common.fail_task(
-                task,
-                f"Query failed: {error}. Please try again or provide more detail.",
-            )
+            return common.fail_task(task, "The weather check could not be completed. Please try again.")
 
 
 if __name__ == "__main__":

@@ -61,7 +61,7 @@ def call_mcp_tool(url, sql, service_name):
         return json.dumps(
             {
                 "status": "error",
-                "message": f"Could not reach the {service_name} MCP server. Start it first.",
+                "message": "This service is temporarily unavailable. Please try again.",
             }
         )
 

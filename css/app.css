@@ -1,0 +1,386 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520&family=Source+Sans+3:wght@400;500;600&display=swap");
+
+:root {
+    --ink: #14211e;
+    --muted: #5c6b66;
+    --paper: #f3f6f4;
+    --card: #ffffff;
+    --line: #e1e7e3;
+    --teal: #0c6b62;
+    --teal-soft: #e7f3f0;
+    --danger: #8d3b32;
+}
+
+html, body, [class*="css"] {
+    font-family: "Source Sans 3", "Segoe UI", sans-serif;
+    color: var(--ink);
+}
+
+[data-testid="stAppViewContainer"],
+.stMain {
+    background: var(--paper);
+}
+
+.stMain {
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: safe center !important;
+    overflow: hidden;
+}
+
+header[data-testid="stHeader"],
+.stAppHeader,
+#MainMenu,
+footer,
+[data-testid="stToolbar"] {
+    display: none !important;
+    height: 0 !important;
+}
+
+.stMain > .block-container + div {
+    display: none !important;
+    flex: 0 0 0 !important;
+    height: 0 !important;
+}
+
+.block-container {
+    width: min(760px, calc(100% - 3rem));
+    max-width: 760px;
+    margin: 0 auto !important;
+    padding: 1.85rem 1.7rem 0.35rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    flex: 0 0 auto;
+    height: auto;
+    max-height: calc(100vh - 12rem);
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden;
+}
+
+.block-container > [data-testid="stVerticalBlock"] {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+a[aria-label="Link to heading"] {
+    display: none !important;
+}
+
+.sv-top {
+    margin: 0;
+    min-height: 6.9rem;
+}
+
+.sv-kicker {
+    margin: 0 0 0.45rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--teal);
+}
+
+.sv-top h1 {
+    margin: 0;
+    font-family: Fraunces, Georgia, serif;
+    font-size: 2.8rem;
+    font-weight: 520;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    padding-bottom: 0.35rem;
+}
+
+.sv-lead {
+    margin: 0.7rem 0 0.2rem;
+    max-width: 36rem;
+    color: var(--muted);
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+
+.sv-prompt-kicker {
+    margin: 0.85rem 0 0.3rem;
+    color: var(--teal);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.block-container div:has(> .st-key-stage) {
+    flex: 0 0 auto !important;
+    height: 19.5rem !important;
+    max-height: 19.5rem !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+.st-key-stage {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+}
+
+.sv-source {
+    margin: 0 0 0.2rem;
+    color: var(--teal);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+[data-testid="stElementContainer"]:has([aria-label="Chat message from assistant"]) {
+    display: flex !important;
+    justify-content: flex-start !important;
+}
+
+[data-testid="stElementContainer"]:has([aria-label="Chat message from user"]) {
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+
+[data-testid="stChatMessage"] {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0.15rem 0;
+    margin: 0 0 1rem;
+    box-shadow: none;
+    width: fit-content !important;
+    max-width: 100%;
+    align-items: flex-start;
+    gap: 0.65rem;
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from assistant"]) {
+    margin-right: auto;
+    margin-left: 0;
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from user"]) {
+    flex-direction: row-reverse;
+    max-width: 78%;
+    margin-left: auto;
+    margin-right: 0;
+    background: var(--teal-soft);
+    border-radius: 16px;
+    padding: 0.85rem 1rem;
+}
+
+[data-testid="stChatMessageAvatarCustom"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from user"]) [data-testid="stChatMessageAvatarCustom"] {
+    background: var(--teal);
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from assistant"]) [data-testid="stChatMessageAvatarCustom"] {
+    background: var(--card);
+    border: 1px solid var(--line);
+}
+
+[data-testid="stChatMessage"] [data-testid="stIconMaterial"] {
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
+    display: block !important;
+    overflow: hidden;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 1.15rem 1.15rem;
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from user"]) [data-testid="stIconMaterial"] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+}
+
+[data-testid="stChatMessage"]:has([aria-label="Chat message from assistant"]) [data-testid="stIconMaterial"] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c6b62' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'/%3E%3Cpath d='M2 12h20'/%3E%3C/svg%3E");
+}
+
+[data-testid="stChatMessage"] .stMarkdown p {
+    color: var(--ink) !important;
+    font-size: 1.02rem;
+    line-height: 1.55;
+}
+
+
+div[data-testid="stChatInput"],
+div[data-testid="stChatInput"] > div {
+    background: transparent !important;
+}
+
+.st-emotion-cache-6mn6c9,
+.st-emotion-cache-6mn6c9:focus,
+.st-emotion-cache-6mn6c9:focus-within,
+[data-testid="stChatInput"] > div:focus-within {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stBottom"] {
+    position: static !important;
+    width: min(760px, calc(100% - 3rem));
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0.35rem 1.7rem 1.25rem;
+    box-sizing: border-box;
+    background: var(--card) !important;
+    border: 1px solid var(--line);
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    flex: 0 0 auto;
+}
+
+[data-testid="stBottom"] > div {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+[data-testid="stBottomBlockContainer"] {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+}
+
+[data-testid="stChatInput"] {
+    width: 100%;
+}
+
+[data-testid="stChatInput"] > div > div {
+    position: relative;
+}
+
+[data-testid="stChatInput"] > div > div > div:last-child {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    margin: 0;
+}
+
+[data-testid="stChatInputTextArea"] {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 7.5rem !important;
+    padding: 1.15rem 1.2rem 3.25rem !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    background: var(--card) !important;
+    color: var(--ink) !important;
+    font-size: 1.06rem !important;
+    line-height: 1.5 !important;
+}
+
+div[data-testid="stChatInput"] textarea {
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    background: var(--card) !important;
+    color: var(--ink) !important;
+    min-height: 7.5rem !important;
+    padding: 1.15rem 1.2rem 3.25rem !important;
+    font-size: 1.06rem !important;
+    line-height: 1.5 !important;
+}
+
+div[data-testid="stChatInput"] textarea:focus {
+    border-color: var(--teal) !important;
+    box-shadow: 0 0 0 3px var(--teal-soft) !important;
+}
+
+div[data-testid="stChatInput"] button {
+    background: var(--teal) !important;
+    color: var(--card) !important;
+    border: none !important;
+    border-radius: 12px !important;
+}
+
+.block-container [data-testid="stElementContainer"]:has(button[kind="secondary"]),
+.block-container [data-testid="stButton"] {
+    width: 100%;
+    align-self: stretch;
+}
+
+.block-container button[kind="secondary"] {
+    width: 100% !important;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-weight: 500;
+    font-size: 1rem;
+    text-align: left;
+    justify-content: flex-start !important;
+    padding: 0.9rem 1rem;
+    line-height: 1.4;
+    white-space: normal;
+    height: auto;
+    min-height: 0;
+}
+
+.block-container button[kind="secondary"]:hover {
+    border-color: var(--teal);
+    background: var(--card);
+    color: var(--teal);
+}
+
+.block-container button[kind="tertiary"] {
+    width: auto;
+    margin: 0 0 0.8rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--teal);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.block-container button[kind="tertiary"]:hover {
+    color: var(--ink);
+    background: transparent;
+}
+
+.sv-footer {
+    margin: 1.4rem 0 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 860px) {
+    .sv-top h1 {
+        font-size: 2.2rem;
+    }
+
+    .block-container,
+    [data-testid="stBottom"] {
+        width: calc(100% - 1.5rem);
+    }
+}
