@@ -18,7 +18,7 @@ if project_directory not in sys.path:
 
 from config import Config
 from create_logger import logger
-from main import _require_setting, _state_value, _status_text, _text
+from main import _require_setting, _state_value, _status_text, _text, resolve_route
 from main_prompts import SmartVoyagePrompts
 
 conf = Config()
@@ -35,23 +35,25 @@ if "agent_network" not in st.session_state:
         "TicketQueryAssistant": _require_setting("TICKET_AGENT_URL", conf.ticket_agent_url),
         "TicketOrderAssistant": _require_setting("ORDER_AGENT_URL", conf.order_agent_url),
     }
-    network = AgentNetwork(name="Travel Assistant Network")
+    network = AgentNetwork(name=conf.network_name)
     for name, url in st.session_state.agent_urls.items():
-        network.add(name, A2AClient(url, timeout=120))
+        network.add(name, A2AClient(url, timeout=conf.agent_timeout_seconds))
     st.session_state.agent_network = network
     st.session_state.llm = ChatOpenAI(
         model=conf.model_name,
         api_key=conf.api_key,
         base_url=conf.base_url,
-        temperature=0.1,
+        temperature=conf.llm_temperature,
     )
     st.session_state.conversation_history = ""
 
 
 def intent_agent(user_input):
     chain = SmartVoyagePrompts.intent_prompt() | st.session_state.llm
-    current_date = datetime.now(ZoneInfo("Australia/Sydney")).strftime("%Y-%m-%d")
-    recent_history = "\n".join(st.session_state.conversation_history.split("\n")[-6:])
+    current_date = datetime.now(ZoneInfo(conf.app_timezone)).strftime("%Y-%m-%d")
+    recent_history = "\n".join(
+        st.session_state.conversation_history.split("\n")[-conf.history_intent_lines:]
+    )
     intent_response = _text(
         chain.invoke(
             {
@@ -72,22 +74,10 @@ def intent_agent(user_input):
     return intents, user_queries, follow_up_message
 
 
-AGENT_LABELS = {
-    "WeatherQueryAssistant": "Weather",
-    "TicketQueryAssistant": "Tickets",
-    "TicketOrderAssistant": "Booking",
-}
-
-SUGGESTIONS = [
-    ("Weather", "What is the weather in Sydney on 2026-09-28?"),
-    ("Tickets", "Find an Economy train from Sydney to Melbourne on 2026-10-03."),
-    ("Places", "Recommend outdoor places to visit in Sydney."),
-]
-
-typed = st.chat_input("Ask for a forecast, a ticket, a booking, or a place")
+typed = st.chat_input(conf.ui_chat_placeholder)
 prompt = typed
 
-lead = '<p class="sv-lead">Check the weather, compare fares, and reserve a seat.</p>'
+lead = f'<p class="sv-lead">{html.escape(conf.ui_lead)}</p>'
 st.markdown(
     f"""
     <header class="sv-top">
@@ -113,7 +103,8 @@ with st.container(key="stage", height=480, autoscroll=True):
                     st.markdown(f'<p class="sv-source">{html.escape(source)}</p>', unsafe_allow_html=True)
                 st.markdown(message["content"])
     else:
-        for index, (label, suggestion) in enumerate(SUGGESTIONS):
+        for index, suggestion_pair in enumerate(conf.ui_suggestions):
+            label, suggestion = suggestion_pair
             st.markdown(f'<p class="sv-prompt-kicker">{html.escape(label)}</p>', unsafe_allow_html=True)
             if st.button(suggestion, key=f"suggestion-{index}", type="secondary"):
                 prompt = suggestion
@@ -125,15 +116,13 @@ with st.container(key="stage", height=480, autoscroll=True):
         st.session_state.conversation_history += f"\nUser: {prompt}"
 
         llm = st.session_state.llm
-        with st.spinner("Checking with SmartVoyage..."):
+        with st.spinner(conf.ui_spinner_text):
             try:
                 intents, user_queries, follow_up_message = intent_agent(prompt)
                 sources = []
 
                 if "out_of_scope" in intents or follow_up_message:
-                    response = follow_up_message or (
-                        "I can help with weather, train and flight tickets, concert seats, bookings, and places to visit."
-                    )
+                    response = follow_up_message or conf.msg_out_of_scope
                     sources.append("SmartVoyage")
                     st.session_state.conversation_history += f"\nAssistant: {response}"
                 else:
@@ -141,31 +130,28 @@ with st.container(key="stage", height=480, autoscroll=True):
                     routed_agents = []
                     for intent in intents:
                         logger.info(f"Handling intent: {intent}")
-                        if intent == "weather":
-                            agent_name = "WeatherQueryAssistant"
-                        elif intent in ["flight", "train", "concert"]:
-                            agent_name = "TicketQueryAssistant"
-                        elif intent == "order":
-                            agent_name = "TicketOrderAssistant"
-                        else:
-                            agent_name = None
-
-                        if intent == "attraction":
+                        route = resolve_route(intent)
+                        if route == conf.local_attraction_target:
                             chain = SmartVoyagePrompts.attraction_prompt() | llm
                             rec_response = _text(chain.invoke({"query": prompt}).content)
                             responses.append(rec_response)
                             sources.append("Places")
-                        elif agent_name:
+                        elif route:
+                            agent_name = route
                             query_str = user_queries.get(intent) or prompt
                             logger.info(f"{agent_name} query: {query_str}")
                             agent = st.session_state.agent_network.get_agent(agent_name)
-                            label = AGENT_LABELS.get(agent_name, agent_name)
+                            label = conf.agent_labels.get(agent_name, agent_name)
                             if agent is None:
-                                responses.append(f"{label} is unavailable right now. Please try again in a moment.")
+                                responses.append(conf.msg_agent_unavailable_ui.format(label=label))
                                 sources.append(label)
                                 continue
                             chat_history = (
-                                "\n".join(st.session_state.conversation_history.split("\n")[-7:-1])
+                                "\n".join(
+                                    st.session_state.conversation_history.split("\n")[
+                                        -conf.history_agent_lines:-1
+                                    ]
+                                )
                                 + f"\nUser: {query_str}"
                             )
                             message = Message(content=TextContent(text=chat_history), role=MessageRole.USER)
@@ -194,9 +180,7 @@ with st.container(key="stage", height=480, autoscroll=True):
                             routed_agents.append(agent_name)
                             sources.append(label)
                         else:
-                            responses.append(
-                                "I can help with weather, train and flight tickets, concert seats, bookings, and places to visit."
-                            )
+                            responses.append(conf.msg_out_of_scope)
                             sources.append("SmartVoyage")
 
                     response = "\n\n".join(responses)
@@ -212,7 +196,7 @@ with st.container(key="stage", height=480, autoscroll=True):
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
-                        "content": "I could not read that request. Name a city, a date, and what you need.",
+                        "content": conf.msg_intent_parse_error_ui,
                         "source": "SmartVoyage",
                     }
                 )
@@ -221,7 +205,7 @@ with st.container(key="stage", height=480, autoscroll=True):
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
-                        "content": "SmartVoyage could not complete that request. Please try again in a moment.",
+                        "content": conf.msg_request_failed_ui,
                         "source": "SmartVoyage",
                     }
                 )

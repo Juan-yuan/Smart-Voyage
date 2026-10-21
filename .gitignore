@@ -22,6 +22,9 @@ ENV/
 .env.*
 !.env.example
 
+# Private SQL schemas / seed data (keep only in .env)
+scripts/
+
 # API keys / credentials
 *.pem
 *.key

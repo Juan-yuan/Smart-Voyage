@@ -44,7 +44,7 @@ class WeatherService:
                         result[key] = default_encoder(value)
             if not results:
                 return json.dumps(
-                    {"status": "no_data", "message": "No weather data found. Check the city and date."},
+                    {"status": "no_data", "message": conf.mcp_weather_no_data},
                     ensure_ascii=False,
                 )
             return json.dumps({"status": "success", "data": results}, cls=DateEncoder, ensure_ascii=False)
@@ -55,18 +55,15 @@ class WeatherService:
 
 def create_weather_mcp_server():
     weather_mcp = FastMCP(
-        name="WeatherTools",
-        description="Weather query tool based on the weather_data table.",
+        name=conf.weather_mcp_name,
+        description=conf.weather_mcp_description,
     )
 
     service = WeatherService()
 
     @weather_mcp.tool(
-        name="query_weather",
-        description=(
-            'Query weather data. Pass a SQL statement, for example '
-            'SELECT * FROM weather_data WHERE city = "Sydney" AND fx_date = "2026-09-28"'
-        ),
+        name=conf.weather_tool_name,
+        description=conf.weather_tool_description,
     )
     def query_weather(sql: str) -> str:
         logger.info(f"Running weather query: {sql}")

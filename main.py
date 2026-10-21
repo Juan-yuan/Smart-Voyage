@@ -51,8 +51,11 @@ def _status_text(task) -> str:
     return str(message)
 
 
+def resolve_route(intent):
+    return conf.intent_agent_map.get(intent)
+
+
 def initialize_system():
-    """Build the agent network and the language model from .env settings."""
     global agent_network, llm, agent_urls, conversation_history
 
     agent_urls = {
@@ -60,16 +63,16 @@ def initialize_system():
         "TicketQueryAssistant": _require_setting("TICKET_AGENT_URL", conf.ticket_agent_url),
         "TicketOrderAssistant": _require_setting("ORDER_AGENT_URL", conf.order_agent_url),
     }
-    network = AgentNetwork(name="Travel Assistant Network")
+    network = AgentNetwork(name=conf.network_name)
     for name, url in agent_urls.items():
-        network.add(name, A2AClient(url, timeout=120))
+        network.add(name, A2AClient(url, timeout=conf.agent_timeout_seconds))
     agent_network = network
 
     llm = ChatOpenAI(
         model=conf.model_name,
         api_key=conf.api_key,
         base_url=conf.base_url,
-        temperature=0.1,
+        temperature=conf.llm_temperature,
     )
     conversation_history = ""
 
@@ -78,8 +81,8 @@ def intent_agent(user_input):
     global conversation_history, llm
 
     chain = SmartVoyagePrompts.intent_prompt() | llm
-    current_date = datetime.now(ZoneInfo("Australia/Sydney")).strftime("%Y-%m-%d")
-    recent_history = "\n".join(conversation_history.split("\n")[-6:])
+    current_date = datetime.now(ZoneInfo(conf.app_timezone)).strftime("%Y-%m-%d")
+    recent_history = "\n".join(conversation_history.split("\n")[-conf.history_intent_lines:])
     intent_response = _text(
         chain.invoke(
             {
@@ -101,7 +104,6 @@ def intent_agent(user_input):
 
 
 def process_user_input(prompt):
-    """Classify the request, route it to an agent, and print the reply."""
     global messages, conversation_history, llm
     messages.append({"role": "user", "content": prompt})
     conversation_history += f"\nUser: {prompt}"
@@ -117,27 +119,23 @@ def process_user_input(prompt):
             responses = []
             routed_agents = []
             for intent in intents:
-                if intent == "weather":
-                    agent_name = "WeatherQueryAssistant"
-                elif intent in ["flight", "train", "concert"]:
-                    agent_name = "TicketQueryAssistant"
-                elif intent == "order":
-                    agent_name = "TicketOrderAssistant"
-                else:
-                    agent_name = None
-
-                if intent == "attraction":
+                route = resolve_route(intent)
+                if route == conf.local_attraction_target:
                     chain = SmartVoyagePrompts.attraction_prompt() | llm
                     rec_response = _text(chain.invoke({"query": prompt}).content)
                     responses.append(rec_response)
-                elif agent_name:
+                elif route:
+                    agent_name = route
                     query_str = user_queries.get(intent) or prompt
                     logger.info(f"{agent_name} query: {query_str}")
                     agent = agent_network.get_agent(agent_name)
                     if agent is None:
-                        responses.append(f"{agent_name} is not available.")
+                        responses.append(conf.msg_agent_unavailable.format(agent=agent_name))
                         continue
-                    chat_history = "\n".join(conversation_history.split("\n")[-7:-1]) + f"\nUser: {query_str}"
+                    chat_history = (
+                        "\n".join(conversation_history.split("\n")[-conf.history_agent_lines:-1])
+                        + f"\nUser: {query_str}"
+                    )
                     message = Message(content=TextContent(text=chat_history), role=MessageRole.USER)
                     task = Task(id="task-" + str(uuid.uuid4()), message=message.to_dict())
                     raw_response = asyncio.run(agent.send_task_async(task))
@@ -164,7 +162,7 @@ def process_user_input(prompt):
                     responses.append(final_response)
                     routed_agents.append(agent_name)
                 else:
-                    responses.append("This request is not supported.")
+                    responses.append(conf.msg_unsupported)
 
             response = "\n\n".join(responses)
             if routed_agents:
@@ -176,20 +174,19 @@ def process_user_input(prompt):
         return response
     except json.JSONDecodeError as json_error:
         logger.error(f"Intent JSON parsing failed: {json_error}")
-        error_message = f"Could not read the intent result: {json_error}. Please try again."
+        error_message = conf.msg_intent_parse_error.format(error=json_error)
         print(f"\nAssistant reply:\n{error_message}\n")
         messages.append({"role": "assistant", "content": error_message})
         return error_message
     except Exception as error:
         logger.error(f"Request failed: {error}")
-        error_message = f"Request failed: {error}. Please try again."
+        error_message = conf.msg_request_failed.format(error=error)
         print(f"\nAssistant reply:\n{error_message}\n")
         messages.append({"role": "assistant", "content": error_message})
         return error_message
 
 
 def display_agent_cards():
-    """Print each agent's name, skills, description, and configured address."""
     print("\nAgent cards:")
     for agent_name in agent_network.agents.keys():
         agent_card = agent_network.get_agent_card(agent_name)

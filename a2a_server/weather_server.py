@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from langchain_core.prompts import ChatPromptTemplate
-from python_a2a import A2AServer, AgentCard, AgentSkill, run_server
+from python_a2a import A2AServer, run_server
 
 server_directory = os.path.dirname(os.path.abspath(__file__))
 project_directory = os.path.dirname(server_directory)
@@ -19,7 +19,7 @@ from create_logger import logger
 
 conf = Config()
 llm = common.make_llm(conf)
-table_schema_string = common.load_sql_script("weather_schema.sql")
+table_schema_string = common.require_setting("WEATHER_SCHEMA_SQL", conf.weather_schema_sql)
 
 WEATHER_MCP_URL = common.require_setting("WEATHER_MCP_URL", conf.weather_mcp_url)
 WEATHER_AGENT_URL = common.require_setting("WEATHER_AGENT_URL", conf.weather_agent_url)
@@ -29,26 +29,17 @@ sql_prompt = ChatPromptTemplate.from_template(
 
 
 def get_weather(sql: str) -> str:
-    """Call the weather MCP server and return its JSON text."""
-    result_text = common.call_mcp_tool(WEATHER_MCP_URL, sql, "weather")
+    result_text = common.call_mcp_tool(
+        WEATHER_MCP_URL,
+        sql,
+        "weather",
+        conf.msg_service_unavailable,
+    )
     logger.info(f"Weather query result: {result_text}")
     return result_text
 
 
-agent_card = AgentCard(
-    name="WeatherQueryAssistant",
-    description="City forecasts for a date or a short date range.",
-    url=WEATHER_AGENT_URL,
-    version="1.0.0",
-    capabilities={"streaming": True, "memory": True},
-    skills=[
-        AgentSkill(
-            name="City forecast",
-            description="Answer a weather question for a city and a date.",
-            examples=["Sydney weather on 2026-10-02", "Melbourne for the next 5 days", "What is the weather today"],
-        )
-    ],
-)
+agent_card = common.build_agent_card(conf.weather_agent_card, WEATHER_AGENT_URL)
 
 
 class WeatherQueryServer(A2AServer):
@@ -59,10 +50,9 @@ class WeatherQueryServer(A2AServer):
         self.schema = table_schema_string
 
     def generate_sql_query(self, conversation: str) -> dict:
-        """Turn a conversation into SQL, or a follow-up question when details are missing."""
         try:
             chain = self.sql_prompt | self.llm
-            current_date = datetime.now(ZoneInfo("Australia/Sydney")).strftime("%Y-%m-%d")
+            current_date = datetime.now(ZoneInfo(conf.app_timezone)).strftime("%Y-%m-%d")
             raw_content = chain.invoke(
                 {
                     "conversation": conversation,
@@ -80,7 +70,7 @@ class WeatherQueryServer(A2AServer):
             logger.error(f"Failed to generate the SQL query: {error}")
             return {
                 "status": "input_required",
-                "message": "Please include a city and a date.",
+                "message": conf.msg_weather_need_city_date,
             }
 
     def handle_task(self, task):
@@ -96,7 +86,7 @@ class WeatherQueryServer(A2AServer):
             sql_query = sql_result["sql"].strip().rstrip(";")
             logger.info(f"Generated SQL query: {sql_query}")
             if not sql_query.upper().startswith("SELECT"):
-                return common.fail_task(task, "Please ask for the weather in a city on a date.")
+                return common.fail_task(task, conf.msg_weather_ask_select)
 
             weather_result = get_weather(sql_query)
             response = common.parse_mcp_payload(weather_result)
@@ -104,12 +94,7 @@ class WeatherQueryServer(A2AServer):
             if response.get("status") == "success":
                 data = response.get("data", [])
                 response_text = "\n".join(
-                    (
-                        f"{row['city']} {row['fx_date']}: {row['text_day']} (night: {row['text_night']}), "
-                        f"temperature {row['temp_min']}-{row['temp_max']}°C, humidity {row['humidity']}%, "
-                        f"wind {row['wind_dir_day']}, precipitation {row['precip']}mm"
-                    )
-                    for row in data
+                    conf.weather_row_template.format(**row) for row in data
                 )
             else:
                 response_text = ""
@@ -117,12 +102,12 @@ class WeatherQueryServer(A2AServer):
                 task,
                 response,
                 response_text,
-                "No forecast is available for that city and date.",
-                "The weather check could not be completed. Please try again.",
+                conf.msg_weather_no_data,
+                conf.msg_weather_failed,
             )
         except Exception as error:
             logger.error(f"Query failed: {error}")
-            return common.fail_task(task, "The weather check could not be completed. Please try again.")
+            return common.fail_task(task, conf.msg_weather_failed)
 
 
 if __name__ == "__main__":

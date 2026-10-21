@@ -4,15 +4,13 @@ import sys
 
 import requests
 from langchain_openai import ChatOpenAI
-from python_a2a import TaskState, TaskStatus
+from python_a2a import AgentCard, AgentSkill, TaskState, TaskStatus
 
 PROJECT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_DIRECTORY not in sys.path:
     sys.path.insert(0, PROJECT_DIRECTORY)
 
 from create_logger import logger
-
-SCRIPTS_DIRECTORY = os.path.join(PROJECT_DIRECTORY, "scripts")
 
 
 def require_setting(name, value):
@@ -21,11 +19,23 @@ def require_setting(name, value):
     return value
 
 
-def load_sql_script(filename):
-    """Read a SQL file from the scripts directory."""
-    path = os.path.join(SCRIPTS_DIRECTORY, filename)
-    with open(path, encoding="utf-8") as sql_file:
-        return sql_file.read().strip()
+def build_agent_card(card_data, url):
+    skills = [
+        AgentSkill(
+            name=skill["name"],
+            description=skill.get("description", ""),
+            examples=skill.get("examples") or [],
+        )
+        for skill in card_data.get("skills", [])
+    ]
+    return AgentCard(
+        name=card_data["name"],
+        description=card_data.get("description", ""),
+        url=url,
+        version=card_data.get("version", "1.0.0"),
+        capabilities=card_data.get("capabilities") or {"streaming": True, "memory": True},
+        skills=skills,
+    )
 
 
 def make_llm(conf):
@@ -33,7 +43,7 @@ def make_llm(conf):
         model=conf.model_name,
         base_url=conf.base_url,
         api_key=conf.api_key,
-        temperature=0.1,
+        temperature=conf.llm_temperature,
     )
 
 
@@ -49,8 +59,7 @@ def strip_code_fence(text):
     return "\n".join(lines).strip()
 
 
-def call_mcp_tool(url, sql, service_name):
-    """Post a SQL statement to an MCP tool and return its JSON text."""
+def call_mcp_tool(url, sql, service_name, unavailable_message):
     try:
         response = requests.post(url, json={"sql": sql}, timeout=30)
         response.raise_for_status()
@@ -61,7 +70,7 @@ def call_mcp_tool(url, sql, service_name):
         return json.dumps(
             {
                 "status": "error",
-                "message": "This service is temporarily unavailable. Please try again.",
+                "message": unavailable_message,
             }
         )
 

@@ -6,7 +6,7 @@ import uuid
 import requests
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from python_a2a import A2AClient, A2AServer, AgentCard, AgentSkill, Message, MessageRole, Task, TextContent, run_server
+from python_a2a import A2AClient, A2AServer, Message, MessageRole, Task, TextContent, run_server
 
 server_directory = os.path.dirname(os.path.abspath(__file__))
 project_directory = os.path.dirname(server_directory)
@@ -34,11 +34,10 @@ def _call_order_tool(name: str, payload: dict) -> str:
     return body["content"][0]["text"]
 
 
-@tool
+@tool(conf.order_train_tool_name, description=conf.order_train_tool_description)
 def order_train(departure_date: str, train_number: str, seat_type: str, number: int) -> str:
-    """Book a train ticket by departure date, train number, seat type, and quantity."""
     return _call_order_tool(
-        "order_train",
+        conf.order_train_tool_name,
         {
             "departure_date": departure_date,
             "train_number": train_number,
@@ -48,11 +47,10 @@ def order_train(departure_date: str, train_number: str, seat_type: str, number: 
     )
 
 
-@tool
+@tool(conf.order_flight_tool_name, description=conf.order_flight_tool_description)
 def order_flight(departure_date: str, flight_number: str, seat_type: str, number: int) -> str:
-    """Book a flight ticket by departure date, flight number, seat type, and quantity."""
     return _call_order_tool(
-        "order_flight",
+        conf.order_flight_tool_name,
         {
             "departure_date": departure_date,
             "flight_number": flight_number,
@@ -62,11 +60,10 @@ def order_flight(departure_date: str, flight_number: str, seat_type: str, number
     )
 
 
-@tool
+@tool(conf.order_concert_tool_name, description=conf.order_concert_tool_description)
 def order_concert(start_date: str, artist: str, venue: str, seat_type: str, number: int) -> str:
-    """Book a concert ticket by start date, artist, venue, seat type, and quantity."""
     return _call_order_tool(
-        "order_concert",
+        conf.order_concert_tool_name,
         {
             "start_date": start_date,
             "artist": artist,
@@ -89,7 +86,6 @@ def _message_text(message) -> str:
 
 
 def order_tickets(query: str) -> dict:
-    """Choose a booking tool from the user request and the availability text."""
     try:
         response = llm.bind_tools(ORDER_TOOLS).invoke(
             [
@@ -99,7 +95,7 @@ def order_tickets(query: str) -> dict:
         )
         tool_calls = getattr(response, "tool_calls", None) or []
         if not tool_calls:
-            follow_up = _message_text(response) or "Please provide the missing booking details."
+            follow_up = _message_text(response) or conf.msg_booking_missing
             return {"status": "input_required", "message": follow_up}
 
         results = []
@@ -110,12 +106,12 @@ def order_tickets(query: str) -> dict:
             booking_tool = ORDER_TOOL_MAP.get(name)
             if booking_tool is None:
                 logger.error(f"Unknown booking tool: {name}")
-                return {"status": "error", "message": "That booking could not be completed. Please try again."}
+                return {"status": "error", "message": conf.msg_booking_unknown_tool}
             results.append(booking_tool.invoke(args))
         return {"status": "success", "message": "\n".join(results)}
     except Exception as error:
         logger.error(f"Ticket booking failed: {error}")
-        return {"status": "error", "message": "The booking could not be completed. Please try again."}
+        return {"status": "error", "message": conf.msg_booking_failed}
 
 
 def _status_text(task) -> str:
@@ -130,31 +126,14 @@ def _state_value(state) -> str:
     return state.value if hasattr(state, "value") else str(state)
 
 
-agent_card = AgentCard(
-    name="TicketOrderAssistant",
-    description="Reserves a train, flight, or concert ticket after confirming it is available.",
-    url=ORDER_AGENT_URL,
-    version="1.0.4",
-    capabilities={"streaming": True, "memory": True},
-    skills=[
-        AgentSkill(
-            name="Ticket booking",
-            description="Confirm a train, flight, or concert ticket is available, then reserve it.",
-            examples=[
-                "Book 1 Economy train from Sydney to Melbourne on 2026-10-03",
-                "Book 1 Economy flight from Sydney to Melbourne on 2026-10-02",
-                "Book 2 VIP tickets for Tame Impala at Qudos Bank Arena on 2026-10-16",
-            ],
-        )
-    ],
-)
+agent_card = common.build_agent_card(conf.order_agent_card, ORDER_AGENT_URL)
 
 
 class TicketOrderServer(A2AServer):
     def __init__(self):
         super().__init__(agent_card=agent_card)
         self.llm = llm
-        self.ticket_client = A2AClient(TICKET_AGENT_URL, timeout=120)
+        self.ticket_client = A2AClient(TICKET_AGENT_URL, timeout=conf.agent_timeout_seconds)
 
     def handle_task(self, task):
         content = (task.message or {}).get("content", {})
@@ -181,19 +160,19 @@ class TicketOrderServer(A2AServer):
             if order_result.get("status") == "input_required":
                 return common.ask_for_input(task, data)
             if order_result.get("status") != "success":
-                return common.fail_task(task, data or "The booking could not be completed. Please try again.")
+                return common.fail_task(task, data or conf.msg_booking_failed)
 
             result = f"{data.strip()}\n\n{ticket_result.strip()}"
             return common.finish_task(
                 task,
                 {"status": "success"},
                 result,
-                "No tickets were booked.",
-                "The booking could not be completed. Please try again.",
+                conf.msg_booking_none,
+                conf.msg_booking_failed,
             )
         except Exception as error:
             logger.error(f"Booking failed: {error}")
-            return common.fail_task(task, "The booking could not be completed. Please try again.")
+            return common.fail_task(task, conf.msg_booking_failed)
 
 
 if __name__ == "__main__":

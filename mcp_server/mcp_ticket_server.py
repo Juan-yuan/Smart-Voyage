@@ -44,7 +44,7 @@ class TicketService:
                         result[key] = default_encoder(value)
             if not results:
                 return json.dumps(
-                    {"status": "no_data", "message": "No ticket data found. Check the query conditions."},
+                    {"status": "no_data", "message": conf.mcp_ticket_no_data},
                     ensure_ascii=False,
                 )
             return json.dumps({"status": "success", "data": results}, cls=DateEncoder, ensure_ascii=False)
@@ -55,18 +55,15 @@ class TicketService:
 
 def create_ticket_mcp_server():
     ticket_mcp = FastMCP(
-        name="TicketTools",
-        description="Ticket query tool based on the train_tickets, flight_tickets, and concert_tickets tables.",
+        name=conf.ticket_mcp_name,
+        description=conf.ticket_mcp_description,
     )
 
     service = TicketService()
 
     @ticket_mcp.tool(
-        name="query_ticket",
-        description=(
-            'Query ticket data. Pass a SQL statement, for example '
-            'SELECT * FROM train_tickets WHERE departure_city = "Sydney" AND arrival_city = "Melbourne"'
-        ),
+        name=conf.ticket_tool_name,
+        description=conf.ticket_tool_description,
     )
     def query_ticket(sql: str) -> str:
         logger.info(f"Running ticket query: {sql}")

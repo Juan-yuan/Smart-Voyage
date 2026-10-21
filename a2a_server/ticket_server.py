@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from langchain_core.prompts import ChatPromptTemplate
-from python_a2a import A2AServer, AgentCard, AgentSkill, run_server
+from python_a2a import A2AServer, run_server
 
 server_directory = os.path.dirname(os.path.abspath(__file__))
 project_directory = os.path.dirname(server_directory)
@@ -19,7 +19,7 @@ from create_logger import logger
 
 conf = Config()
 llm = common.make_llm(conf)
-table_schema_string = common.load_sql_script("ticket_schema.sql")
+table_schema_string = common.require_setting("TICKET_SCHEMA_SQL", conf.ticket_schema_sql)
 
 TICKET_QUERY_URL = common.require_setting("TICKET_QUERY_URL", conf.ticket_query_url)
 TICKET_AGENT_URL = common.require_setting("TICKET_AGENT_URL", conf.ticket_agent_url)
@@ -40,30 +40,17 @@ def _query_type_from_sql(sql: str) -> str:
 
 
 def get_ticket_info(sql: str) -> str:
-    """Call the ticket MCP server and return its JSON text."""
-    result_text = common.call_mcp_tool(TICKET_QUERY_URL, sql, "ticket")
+    result_text = common.call_mcp_tool(
+        TICKET_QUERY_URL,
+        sql,
+        "ticket",
+        conf.msg_service_unavailable,
+    )
     logger.info(f"Ticket query result: {result_text}")
     return result_text
 
 
-agent_card = AgentCard(
-    name="TicketQueryAssistant",
-    description="Trains, flights, and concert seats.",
-    url=TICKET_AGENT_URL,
-    version="1.0.4",
-    capabilities={"streaming": True, "memory": True},
-    skills=[
-        AgentSkill(
-            name="Ticket search",
-            description="Find trains, flights, or concert seats from a natural-language request.",
-            examples=[
-                "Train from Sydney to Melbourne on 2026-10-03, Economy",
-                "Flight from Sydney to Melbourne on 2026-10-02, Economy",
-                "Tame Impala concert in Sydney on 2026-10-16, VIP",
-            ],
-        )
-    ],
-)
+agent_card = common.build_agent_card(conf.ticket_agent_card, TICKET_AGENT_URL)
 
 
 class TicketQueryServer(A2AServer):
@@ -74,10 +61,9 @@ class TicketQueryServer(A2AServer):
         self.schema = table_schema_string
 
     def generate_sql_query(self, conversation: str) -> dict:
-        """Turn a conversation into SQL, or a follow-up question when details are missing."""
         try:
             chain = self.sql_prompt | self.llm
-            current_date = datetime.now(ZoneInfo("Australia/Sydney")).strftime("%Y-%m-%d")
+            current_date = datetime.now(ZoneInfo(conf.app_timezone)).strftime("%Y-%m-%d")
             output = chain.invoke(
                 {
                     "conversation": conversation,
@@ -105,13 +91,13 @@ class TicketQueryServer(A2AServer):
             logger.error(f"Unusable LLM output format: {output}")
             return {
                 "status": "input_required",
-                "message": "Please include the ticket type, the cities or venue, and a date.",
+                "message": conf.msg_ticket_need_details,
             }
         except Exception as error:
             logger.error(f"Failed to generate the SQL query: {error}")
             return {
                 "status": "input_required",
-                "message": "Please name a train, flight, or concert, plus the date.",
+                "message": conf.msg_ticket_need_basic,
             }
 
     def handle_task(self, task):
@@ -128,7 +114,7 @@ class TicketQueryServer(A2AServer):
             query_type = generated.get("type") or _query_type_from_sql(sql_query)
             logger.info(f"Generated SQL query: {sql_query} (type: {query_type})")
             if not sql_query.upper().startswith("SELECT"):
-                return common.fail_task(task, "Please ask for a train, a flight, or a concert.")
+                return common.fail_task(task, conf.msg_ticket_ask_select)
 
             ticket_result = get_ticket_info(sql_query)
             response = common.parse_mcp_payload(ticket_result)
@@ -137,32 +123,21 @@ class TicketQueryServer(A2AServer):
             if response.get("status") == "success":
                 for row in response.get("data", []):
                     if query_type == "train":
-                        lines.append(
-                            f"{row['departure_city']} to {row['arrival_city']}, departing {row['departure_time']}. "
-                            f"Train {row['train_number']}, {row['seat_type']}, "
-                            f"{row['price']} AUD, {row['remaining_seats']} seats left."
-                        )
+                        lines.append(conf.train_row_template.format(**row))
                     elif query_type == "flight":
-                        lines.append(
-                            f"{row['departure_city']} to {row['arrival_city']}, departing {row['departure_time']}. "
-                            f"Flight {row['flight_number']}, {row['cabin_type']}, "
-                            f"{row['price']} AUD, {row['remaining_seats']} seats left."
-                        )
+                        lines.append(conf.flight_row_template.format(**row))
                     elif query_type == "concert":
-                        lines.append(
-                            f"{row['artist']} at {row['venue']}, {row['city']}, {row['start_time']}. "
-                            f"{row['ticket_type']}, {row['price']} AUD, {row['remaining_seats']} seats left."
-                        )
+                        lines.append(conf.concert_row_template.format(**row))
             return common.finish_task(
                 task,
                 response,
                 "\n".join(lines),
-                "No tickets matched that search. Please check the cities, date, and seat type.",
-                "The ticket search could not be completed. Please try again.",
+                conf.msg_ticket_no_data,
+                conf.msg_ticket_failed,
             )
         except Exception as error:
             logger.error(f"Query failed: {error}")
-            return common.fail_task(task, "The ticket search could not be completed. Please try again.")
+            return common.fail_task(task, conf.msg_ticket_failed)
 
 
 if __name__ == "__main__":
